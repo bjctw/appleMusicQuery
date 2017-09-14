@@ -1,0 +1,193 @@
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=utf-8">
+<title>iTunes New Release</title>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.2/angular.min.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.2/angular-sanitize.min.js"></script>
+<!-- 
+<link rel="stylesheet" type="text/css" href="styles.css">
+ -->
+</head>
+<body>
+<h3 onclick="clip(this);">台灣 itunes store 新發行動畫音樂</h3>
+
+	<div ng-app="myApp" ng-controller="customersCtrl">
+
+		<lable>Feed Type: <select ng-model="feedTypeName" ng-change="updateModelAuto()"
+			ng-options="feedType.name as feedType.name for feedType in feedTypes">
+		</select> </lable>
+		&emsp;
+		<lable>Genre: <select ng-model="genreNum" ng-change="updateModelAuto()" ng-options="genre.number as genre.name for genre in genres">
+		</select> </lable>
+		&emsp;
+		<lable>Limit: <select ng-model="limitNum" ng-change="updateModelAuto()" ng-options="limit.number as limit.number for limit in limits">
+		</select> </lable>
+		&emsp; <label> <input type="checkbox" ng-model="showSrc"> Show item source
+		</label> 
+		<br />  <br /> 
+		<label>RSS: <input type="text" style="width: 85%;box-sizing: border-box;" value={{itunesRss}} readonly onclick="this.select()">
+		</label>
+
+		<h2>{{title}}</h2>
+
+		<div ng-show="showContent">
+			<ul style="list-style-type: none">
+				<li ng-repeat="x in recordes">
+					<div ng-bind-html="transLocalUrl(x.content)"></div> <pre onclick="clip(this);" ng-show="showSrc">{{transLocalUrlText(x.content)}}</pre>
+				<hr/>
+				</li>
+			</ul>
+		</div>
+
+	</div>
+	<script type="text/javascript">
+	var clip = function(el) {
+		  var range = document.createRange();
+		  range.selectNodeContents(el);
+		  var sel = window.getSelection();
+		  sel.removeAllRanges();
+		  sel.addRange(range);
+		};
+		
+	        var app = angular.module('myApp', ['ngSanitize']);
+	        app.controller('customersCtrl', function($scope, $http) {
+
+	        	$scope.feedTypes =
+	        	[
+	        		{name: 'New Releases'},
+	        		{name: 'Top Albums'},
+	        		{name: 'Top Songs'},
+	        	];
+		        $scope.feedTypeName = $scope.feedTypes[0].name;
+		        	
+	        	$scope.genres = 
+				[
+					{number: '27', name: 'J-Pop'},
+					{number: '29', name: 'Anime'},
+				];
+	        	$scope.genreNum = $scope.genres[1].number;
+
+	        	$scope.limits = [
+					{number: '25'},
+					{number: '50'},
+					{number: '100'},
+	        	];
+	        	$scope.limitNum = $scope.limits[0].number;
+	        	
+	        	$scope.googleFeed = "https://ajax.googleapis.com/ajax/services/feed/load?v=1.0&num=-1&callback=JSON_CALLBACK&q=";
+            	$scope.title = 'Press Button';
+	        	$scope.itunesRss = '';
+	        	$scope.url = $scope.googleFeed + $scope.itunesRss;
+	        	$scope.showContent = false;
+//	            $http.jsonp($scope.url)
+//	            .success(function(response) {$scope.recordes = response.responseData.feed.entries; });
+
+
+
+	            $scope.transLocalUrl = function(str){
+	            		if(str.indexOf("itunes.apple.com/tw") !== -1)
+	            			return str;
+	            		var localUrl = "itunes.apple.com/" + "tw" ;
+	            		var strResult = str.replace(new RegExp("itunes.apple.com", 'g'), localUrl); 
+	            	  return strResult;
+	            	};
+
+	            $scope.transLocalUrlText = function(str){
+            		var strResult = "<h4>\n</h4>\n" + str;
+            		strResult = strResult.replace(new RegExp("</table></td></tr>\n\t*</table>", 'g'), "</table></td>\n<td>\n</td></tr>\n</table>\n<hr/>\n"); 
+            		if(strResult.indexOf("itunes.apple.com/tw") !== -1)
+            			return strResult;
+            		var localUrl = "itunes.apple.com/" + "tw" ;
+            		strResult = strResult.replace(new RegExp("itunes.apple.com", 'g'), localUrl); 
+            	  return strResult;
+            	};
+	            	
+                $scope.updateModel = function(title, itunesRss) {
+    	        	$scope.showContent = false;
+                	$scope.title = 'Loading...';
+                    $scope.itunesRss = itunesRss;
+    	        	$scope.url = $scope.googleFeed + $scope.itunesRss;
+    	            $http.jsonp($scope.url)
+    	            .success(function(response) {
+    	            	$scope.recordes = response.responseData.feed.entries; 
+                		$scope.title = title;
+    	        		$scope.showContent = true;
+					});
+                  };
+                  
+                  $scope.updateModelAuto = function() {
+                	  var titleStr = '';
+                	  var rssUrlStr = '';
+                	  for (i = 0; i < $scope.genres.length; i++) { 
+                		  if($scope.genreNum === $scope.genres[i].number) //jpop
+                		  {
+                			  titleStr += $scope.genres[i].name;
+                			  break;
+                		  }
+                	  }
+                	  if($scope.feedTypeName == $scope.feedTypes[0].name)	//New Releases
+                	  {
+                		  titleStr += ' New Releases';
+	        				//'https://itunes.apple.com/WebObjects/MZStore.woa/wpa/MRSS/newreleases/sf=143441/limit=25/genre=29/rss.xml')">
+                		  rssUrlStr = 'https://itunes.apple.com/WebObjects/MZStore.woa/wpa/MRSS/newreleases/sf=143441/limit='
+                		  	+ $scope.limitNum + '/genre=' + $scope.genreNum + '/rss.xml';
+                	  }
+                	  else if($scope.feedTypeName == $scope.feedTypes[1].name)	//Top Albums
+                	  {
+                		  titleStr += ' Top Albums';
+                		  //'https://itunes.apple.com/tw/rss/topalbums/limit=100/genre=29/xml'
+                		  rssUrlStr = 'https://itunes.apple.com/tw/rss/topalbums/limit='
+                  		  	+ $scope.limitNum + '/genre=' + $scope.genreNum + '/xml';
+                	  }
+                	  else if($scope.feedTypeName == $scope.feedTypes[2].name)	//Top Songs
+                	  {
+                		  titleStr += ' Top Songs';
+                		  rssUrlStr = 'https://itunes.apple.com/tw/rss/topsongs/limit='
+                    		  	+ $scope.limitNum + '/genre=' + $scope.genreNum + '/xml';
+                	  }
+            		  $scope.updateModel(titleStr, rssUrlStr);
+                  }
+
+                  $scope.updateModelAuto();
+	        });
+        </script>
+	<!-- 
+	    <div ng-bind-html="transLocalUrl(x.content)"></div>
+
+>jpop
+https://itunes.apple.com/WebObjects/MZStore.woa/wpa/MRSS/newreleases/sf=143441/limit=100/genre=27/explicit=true/rss.xml
+>anime
+"https://itunes.apple.com/WebObjects/MZStore.woa/wpa/MRSS/newreleases/sf=143441/limit=100/genre=29/rss.xml";
+"https://itunes.apple.com/tw/rss/topalbums/limit=100/genre=29/xml";
+https://itunes.apple.com/tw/rss/topsongs/limit=100/genre=29/xml
+
+https://ajax.googleapis.com/ajax/services/feed/load?v=1.0&num=-1&callback=JSON_CALLBACK&q=https://itunes.apple.com/WebObjects/MZStore.woa/wpa/MRSS/justadded/sf=143441/limit=100/genre=29/rss.xml
+https://ajax.googleapis.com/ajax/services/feed/load?v=1.0&num=-1&callback=JSON_CALLBACK&q=https://itunes.apple.com/WebObjects/MZStore.woa/wpa/MRSS/newreleases/sf=143441/limit=100/genre=29/cc=tw/rss.xml
+https://ajax.googleapis.com/ajax/services/feed/load?v=1.0&num=-1&callback=JSON_CALLBACK&q=https://itunes.apple.com/WebObjects/MZStore.woa/wpa/MRSS/newreleases/sf=143441/limit=100/genre=29/cc=jp/rss.xml
+	    {{ x.title + ', ' + x.link }}
+
+	            $http.jsonp("https://itunes.apple.com/search?term=sato+satomi&country=tw&callback=JSON_CALLBACK")
+
+
+ <div ng-app="testApp" ng-controller="testCtrl">
+
+<ul>
+  <li ng-repeat="x in names">
+    {{ x.Name + ', ' + x.Country }}
+  </li>
+</ul>
+
+</div>
+
+<script>
+var app = angular.module('testApp', []);
+app.controller('testCtrl', function($scope, $http) {
+    $http.get("http://www.w3schools.com/angular/customers.php")
+    .success(function(response) {$scope.names = response.records;});
+});
+</script>
+-->
+
+</body>
+</html>
