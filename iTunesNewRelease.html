@@ -34,7 +34,7 @@
 		<div ng-show="showContent">
 			<ul style="list-style-type: none">
 				<li ng-repeat="x in recordes">
-					<div ng-bind-html="transLocalUrl(x.content)"></div> <pre onclick="clip(this);" ng-show="showSrc">{{transLocalUrlText(x.content)}}</pre>
+					<div ng-bind-html="transLocalUrlWrapper(x)"></div> <pre onclick="clip(this);" ng-show="showSrc">{{transLocalUrlTextWrapper(x)}}</pre>
 				<hr/>
 				</li>
 			</ul>
@@ -75,17 +75,38 @@
 	        	];
 	        	$scope.limitNum = $scope.limits[0].number;
 	        	
-	        	$scope.googleFeed = "https://ajax.googleapis.com/ajax/services/feed/load?v=1.0&num=-1&callback=JSON_CALLBACK&q=";
+	        	$scope.yahooApi = "https://query.yahooapis.com/v1/public/yql?format=json&env=store://datatables.org/alltableswithkeys&callback=JSON_CALLBACK&q=";
             	$scope.title = 'Press Button';
 	        	$scope.itunesRss = '';
-	        	$scope.url = $scope.googleFeed + $scope.itunesRss;
+	        	$scope.url = $scope.yahooApi + $scope.itunesRss;
 	        	$scope.showContent = false;
 //	            $http.jsonp($scope.url)
 //	            .success(function(response) {$scope.recordes = response.responseData.feed.entries; });
 
 
+	            $scope.transLocalUrlWrapper = function(obj){
+    	            if('encoded' in obj) {
+						return $scope.transLocalUrl(obj.encoded);
+					}
+					return $scope.transLocalUrl(obj.content.content);
+				};
 
+	            $scope.transLocalUrlTextWrapper = function(obj){
+    	            if('encoded' in obj) {
+						return $scope.transLocalUrlText(obj.encoded);
+					}
+					return $scope.transLocalUrlText(obj.content.content);
+				};
+				
 	            $scope.transLocalUrl = function(str){
+						//Angular: unsafe HTML?
+						var checkStr = str.match(/ alt="(.+) artwork" src=/); 
+						if(checkStr) {
+							var repStr = RegExp.$1;
+							var modStr = repStr.replace(/"/g,'&quot;');
+							str = str.replace(repStr, modStr); 
+						}
+						
 	            		if(str.indexOf("itunes.apple.com/tw") !== -1)
 	            			return str;
 	            		var localUrl = "itunes.apple.com/" + "tw" ;
@@ -107,12 +128,22 @@
     	        	$scope.showContent = false;
                 	$scope.title = 'Loading...';
                     $scope.itunesRss = itunesRss;
-    	        	$scope.url = $scope.googleFeed + $scope.itunesRss;
+    	        	$scope.url = $scope.yahooApi + $scope.itunesRss;
     	            $http.jsonp($scope.url)
     	            .success(function(response) {
-    	            	$scope.recordes = response.responseData.feed.entries; 
+						if('rss' in response.query.results) {
+							$scope.recordes = response.query.results.rss.channel.item; 
+						}
+						else {
+							$scope.recordes = response.query.results.feed.entry;  	
+						}
                 		$scope.title = title;
     	        		$scope.showContent = true;
+					}).
+					error(function(response) {
+						// called asynchronously if an error occurs
+						// or server returns response with an error status.
+						$scope.title = 'Query error!';
 					});
                   };
                   
@@ -130,21 +161,21 @@
                 	  {
                 		  titleStr += ' New Releases';
 	        				//'https://itunes.apple.com/WebObjects/MZStore.woa/wpa/MRSS/newreleases/sf=143441/limit=25/genre=29/rss.xml')">
-                		  rssUrlStr = 'https://itunes.apple.com/WebObjects/MZStore.woa/wpa/MRSS/newreleases/sf=143441/limit='
-                		  	+ $scope.limitNum + '/genre=' + $scope.genreNum + '/rss.xml';
+                		  rssUrlStr = "select * from xml where url ='http://ax.itunes.apple.com/WebObjects/MZStore.woa/wpa/MRSS/newreleases/sf=143441/limit="
+                		  	+ $scope.limitNum + '/genre=' + $scope.genreNum + "/rss.xml'";
                 	  }
                 	  else if($scope.feedTypeName == $scope.feedTypes[1].name)	//Top Albums
                 	  {
                 		  titleStr += ' Top Albums';
                 		  //'https://itunes.apple.com/tw/rss/topalbums/limit=100/genre=29/xml'
-                		  rssUrlStr = 'https://itunes.apple.com/tw/rss/topalbums/limit='
-                  		  	+ $scope.limitNum + '/genre=' + $scope.genreNum + '/xml';
+                		  rssUrlStr = "select * from xml where url ='http://ax.itunes.apple.com/tw/rss/topalbums/limit="
+                  		  	+ $scope.limitNum + '/genre=' + $scope.genreNum + "/xml'";
                 	  }
                 	  else if($scope.feedTypeName == $scope.feedTypes[2].name)	//Top Songs
                 	  {
                 		  titleStr += ' Top Songs';
-                		  rssUrlStr = 'https://itunes.apple.com/tw/rss/topsongs/limit='
-                    		  	+ $scope.limitNum + '/genre=' + $scope.genreNum + '/xml';
+                		  rssUrlStr = "select * from xml where url ='http://ax.itunes.apple.com/tw/rss/topsongs/limit="
+                    		  	+ $scope.limitNum + '/genre=' + $scope.genreNum + "/xml'";
                 	  }
             		  $scope.updateModel(titleStr, rssUrlStr);
                   }
@@ -153,7 +184,16 @@
 	        });
         </script>
 	<!-- 
+	
+	
 	    <div ng-bind-html="transLocalUrl(x.content)"></div>
+
+[new]
+http://ax.itunes.apple.com/WebObjects/MZStore.woa/wpa/MRSS/newreleases/sf=143441/limit=25/genre=29/rss.xml
+https://api.rss2json.com/v1/api.json?rss_url=
+https://query.yahooapis.com/v1/public/yql?q=select%20*%20from%20xml%20where%20url%20%3D'http%3A%2F%2Fax.itunes.apple.com%2FWebObjects%2FMZStore.woa%2Fwpa%2FMRSS%2Fnewreleases%2Fsf%3D143441%2Flimit%3D25%2Fgenre%3D29%2Frss.xml'&format=json&env=store%3A%2F%2Fdatatables.org%2Falltableswithkeys&callback=JSON_CALLBACK
+https://query.yahooapis.com/v1/public/yql?format=json&env=store%3A%2F%2Fdatatables.org%2Falltableswithkeys&callback=JSON_CALLBACK&q=select%20*%20from%20xml%20where%20url%20%3D%27http%3A%2F%2Fax.itunes.apple.com%2FWebObjects%2FMZStore.woa%2Fwpa%2FMRSS%2Fnewreleases%2Fsf%3D143441%2Flimit%3D25%2Fgenre%3D29%2Frss.xml%27
+select * from xml where url ='http://ax.itunes.apple.com/WebObjects/MZStore.woa/wpa/MRSS/newreleases/sf=143441/limit=25/genre=29/rss.xml'
 
 >jpop
 https://itunes.apple.com/WebObjects/MZStore.woa/wpa/MRSS/newreleases/sf=143441/limit=100/genre=27/explicit=true/rss.xml
